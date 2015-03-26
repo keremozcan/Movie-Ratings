@@ -1,3 +1,7 @@
+// This was to parse raw data file provided by IMDB
+// but there are issues with it so I decided to write
+// my own web scraping program.
+
 import java.util.*;
 import java.io.*;
 
