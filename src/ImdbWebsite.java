@@ -12,7 +12,7 @@ public class ImdbWebsite {
 
 		// Enter the beginning and end years to search movies within those years
 		// Enter the same year for both for searching only one year
-		// numMinVotes is the minimum number of motes a movie should take in
+		// numMinVotes is the minimum number of votes a movie should take in
 		// order to be included in the final output.
 		int begYear = 2013;
 		int endYear = 2013;
@@ -41,7 +41,7 @@ public class ImdbWebsite {
 			// Maybe a shorter pause could be OK as well. I didn't try.
 			// (1000 milliseconds equals one second)
 			try {
-				Thread.sleep(1000); 
+				Thread.sleep(500); 
 			} catch (InterruptedException ex) {
 				Thread.currentThread().interrupt();
 			}
