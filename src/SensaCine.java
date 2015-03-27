@@ -10,7 +10,7 @@ public class SensaCine {
 		System.setProperty("http.proxyHost", "proxy.mydomain.com");
 		System.setProperty("http.proxyPort", "8080");
 		Map<String, Movie> movies = readImdbFile();
-		PrintStream output = new PrintStream("imdb"
+		PrintStream output = new PrintStream("combined"
 				+ System.currentTimeMillis() + ".txt");
 		movies = alloMovies(movies, output, startTime);
 
@@ -427,6 +427,7 @@ public class SensaCine {
 		output.print(myMovie.ptNumStars);
 		output.print(myMovie.deNumStars);
 		output.print(myMovie.trNumStars);
+		output.println();
 		
 	}
 
