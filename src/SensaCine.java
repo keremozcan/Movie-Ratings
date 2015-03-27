@@ -56,7 +56,9 @@ public class SensaCine {
 	public static Map<String, Movie> alloMovies(Map<String, Movie> imdbMovies,
 			PrintStream output, long startTime) throws IOException {
 		Map<String, Movie> alloMovies = new TreeMap<String, Movie>();
-		int numPage = 1;
+		int numPage = 1; // currently a total of 1831 for 2010s
+		int firstPage = numPage - 1;
+		int totalPage = 1831 - numPage;
 		URL url = new URL(
 				"http://www.allocine.fr/films/decennie-2010/alphabetique/?page="
 						+ numPage);
@@ -73,7 +75,7 @@ public class SensaCine {
 						i++;
 					}
 					String link = token.substring(32, i);
-					// link = "189472";
+					//link = "227258";
 
 					System.out.print(".");
 
@@ -126,7 +128,7 @@ public class SensaCine {
 						String es = esRatings(link);
 						String de = deRatings(link);
 						String pt = ptRatings(link);
-						boolean allNull = (fr.equals("0;0;0;0;0;0;")
+						boolean allNull = (fr.equals("0;0;0;0;0;0;0;0;")
 								&& fr.equals(tr) && fr.equals(de)
 								&& fr.equals(es) && fr.equals(pt));
 						System.out.println();
@@ -157,8 +159,10 @@ public class SensaCine {
 
 			System.out.println();
 			System.out.println("Size: " + alloMovies.size());
-			System.out.print(((100 * numPage) / 1831) + "% done in ");
-			System.out.println(timer(startTime));
+			System.out.print(((100 * (numPage - firstPage)) / totalPage)
+					+ "% done in ");
+			System.out.print(timer(startTime));
+			System.out.println(" (page " + numPage + ")");
 			System.out.println();
 			numPage++;
 			url = new URL(
@@ -171,21 +175,44 @@ public class SensaCine {
 	}
 
 	public static String frRatings(String link) throws IOException {
-		String frResult = "";
+		String frResult = "0;0;";
+		String frNumVotes = "0;";
+		String frAvgRating = "0;";
+		boolean ratingFound = false;
+		boolean critFound = false;
 		URL frLink = new URL("http://www.allocine.fr/film/fichefilm-" + link
 				+ "/critiques/spectateurs/");
 		HttpURLConnection con = (HttpURLConnection) frLink.openConnection();
 		int status = con.getResponseCode();
-		if (status == 500) {
-			System.out.println("French: 0;0;0;0;0;0; (500 error)");
-			return "0;0;0;0;0;0;";
+		if (status == 500 || status == 404 || status == 400) {
+			System.out.println("French: 0;0;0;0;0;0;0;0; (" + status
+					+ " error)");
+			return "0;0;0;0;0;0;0;0;";
+		} else if (status == 408) {
+			return frRatings(link);
 		}
 		Scanner frScanner = new Scanner(frLink.openStream());
 
 		// <div class="stareval stars_medium">
 		while (frScanner.hasNext()) {
 			String myToken = frScanner.next();
+			if (!ratingFound && myToken.startsWith("itemprop=\"ratingValue\"")) {
+				myToken = frScanner.next();
+				String avg = myToken.replaceAll("[^\\d.]", "");
+				avg = avg.substring(avg.length() - 2, avg.length());
+				frAvgRating = avg.charAt(0) + "." + avg.charAt(1);
+				ratingFound = true;
+				frResult = frAvgRating + ";";
+				// System.out.println("frAvgRating: " + frAvgRating);
+			}
+			if (myToken.startsWith("itemprop=\"ratingCount\">")) {
+				frNumVotes = myToken.replaceAll("[^\\d.]", "");
+				frResult = frNumVotes + ";" + frResult;
+				// System.out.println("frNumVotes: " + frNumVotes);
+				// itemprop="ratingCount">
+			}
 			if (myToken.equals("stars_medium\">")) {
+				critFound = true;
 				String prev = "";
 				while (!myToken.startsWith("critique")) {
 					prev = myToken;
@@ -203,9 +230,11 @@ public class SensaCine {
 		}
 
 		boolean noRatings = false;
-		if (frResult.equals("")) {
-			frResult = "0;0;0;0;0;0;";
+		if (frResult.equals("0;0;")) {
+			frResult = "0;0;0;0;0;0;0;0;";
 			noRatings = true;
+		} else if (!critFound) {
+			frResult = frResult + "0;0;0;0;0;0;";
 		}
 		frScanner.close();
 		System.out.print("French: " + frResult);
@@ -217,22 +246,47 @@ public class SensaCine {
 	}
 
 	public static String trRatings(String link) throws IOException {
-		String trResult = "";
+		String trResult = "0;0;";
+		String trNumVotes = "0;";
+		String trAvgRating = "0;";
+		boolean ratingFound = false;
+		boolean critFound = false;
 		URL trLink = new URL("http://www.beyazperde.com/filmler/film-" + link
 				+ "/kullanici-elestirileri/");
 		HttpURLConnection con = (HttpURLConnection) trLink.openConnection();
 		int status = con.getResponseCode();
-		if (status == 500) {
-			System.out.println("Turkish: 0;0;0;0;0;0; (500 error)");
-			return "0;0;0;0;0;0;";
+		if (status == 500 || status == 404 || status == 400) {
+			System.out.println("Turkish: 0;0;0;0;0;0;0;0; (" + status
+					+ " error)");
+			return "0;0;0;0;0;0;0;0;";
+		} else if (status == 408) {
+			return trRatings(link);
 		}
 		Scanner trScanner = new Scanner(trLink.openStream());
 
 		// <div class="stareval stars_medium">
 		while (trScanner.hasNext()) {
 			String myToken = trScanner.next();
+			if (!ratingFound && myToken.startsWith("itemprop=\"ratingValue\"")) {
+				myToken = trScanner.next();
+				String avg = myToken.replaceAll("[^\\d.]", "");
+				avg = avg.substring(avg.length() - 2, avg.length());
+				trAvgRating = avg.charAt(0) + "." + avg.charAt(1);
+				ratingFound = true;
+				trResult = trAvgRating + ";";
+				// System.out.println("frAvgRating: " + frAvgRating);
+			}
+			if (myToken.startsWith("itemprop=\"ratingCount\">")
+					|| myToken.startsWith("data-prop=ratingCount")) {
+				trNumVotes = myToken.replaceAll("[^\\d.]", "");
+				// System.out.println(myToken);
+				trResult = trNumVotes + ";" + trResult;
+				// System.out.println("frNumVotes: " + frNumVotes);
+				// itemprop="ratingCount">
+			}
 
 			if (myToken.equals("stars_medium\">")) {
+				critFound = true;
 				String prev = "";
 				while (!myToken.startsWith("kritik")) {
 					prev = myToken;
@@ -250,9 +304,11 @@ public class SensaCine {
 		}
 
 		boolean noRatings = false;
-		if (trResult.equals("")) {
-			trResult = "0;0;0;0;0;0;";
+		if (trResult.equals("0;0;")) {
+			trResult = "0;0;0;0;0;0;0;0;";
 			noRatings = true;
+		} else if (!critFound) {
+			trResult = trResult + "0;0;0;0;0;0;";
 		}
 		trScanner.close();
 		System.out.print("Turkish: " + trResult);
@@ -264,22 +320,44 @@ public class SensaCine {
 	}
 
 	public static String esRatings(String link) throws IOException {
-		String esResult = "";
+		String esResult = "0;0;";
+		String esNumVotes = "0;";
+		String esAvgRating = "0;";
+		boolean ratingFound = false;
+		boolean critFound = false;
 		URL esLink = new URL("http://www.sensacine.com/peliculas/pelicula-"
 				+ link + "/criticas-espectadores/");
 		HttpURLConnection con = (HttpURLConnection) esLink.openConnection();
 		int status = con.getResponseCode();
-		if (status == 500) {
-			System.out.println("Spanish: 0;0;0;0;0;0; (500 error)");
-			return "0;0;0;0;0;0;";
+		if (status == 500 || status == 404 || status == 400) {
+			System.out.println("Spanish: 0;0;0;0;0;0;0;0; (" + status
+					+ " error)");
+			return "0;0;0;0;0;0;0;0;";
+		} else if (status == 408) {
+			return esRatings(link);
 		}
 		Scanner esScanner = new Scanner(esLink.openStream());
 
 		// <div class="stareval stars_medium">
 		while (esScanner.hasNext()) {
 			String myToken = esScanner.next();
-
+			if (!ratingFound && myToken.startsWith("itemprop=\"ratingValue\"")) {
+				myToken = esScanner.next();
+				String avg = myToken.replaceAll("[^\\d.]", "");
+				avg = avg.substring(avg.length() - 2, avg.length());
+				esAvgRating = avg.charAt(0) + "." + avg.charAt(1);
+				ratingFound = true;
+				esResult = esAvgRating + ";";
+				// System.out.println("frAvgRating: " + frAvgRating);
+			}
+			if (myToken.startsWith("itemprop=\"ratingCount\">")) {
+				esNumVotes = myToken.replaceAll("[^\\d.]", "");
+				esResult = esNumVotes + ";" + esResult;
+				// System.out.println("frNumVotes: " + frNumVotes);
+				// itemprop="ratingCount">
+			}
 			if (myToken.equals("stars_medium\">")) {
+				critFound = true;
 				String prev = "";
 				while (!myToken.startsWith("cr")) {
 					prev = myToken;
@@ -297,9 +375,11 @@ public class SensaCine {
 		}
 
 		boolean noRatings = false;
-		if (esResult.equals("")) {
-			esResult = "0;0;0;0;0;0;";
+		if (esResult.equals("0;0;")) {
+			esResult = "0;0;0;0;0;0;0;0;";
 			noRatings = true;
+		} else if (!critFound) {
+			esResult = esResult + "0;0;0;0;0;0;";
 		}
 		esScanner.close();
 		System.out.print("Spanish: " + esResult);
@@ -311,22 +391,45 @@ public class SensaCine {
 	}
 
 	public static String deRatings(String link) throws IOException {
-		String deResult = "";
+		String deNumVotes = "0;";
+		String deAvgRating = "0;";
+		boolean ratingFound = false;
+		boolean critFound = false;
+		String deResult = "0;0;";
 		URL deLink = new URL("http://www.filmstarts.de/kritiken/" + link
 				+ "/userkritiken/");
 		HttpURLConnection con = (HttpURLConnection) deLink.openConnection();
 		int status = con.getResponseCode();
-		if (status == 500) {
-			System.out.println("German: 0;0;0;0;0;0; (500 error)");
-			return "0;0;0;0;0;0;";
+		if (status == 500 || status == 404 || status == 400) {
+			System.out.println("German: 0;0;0;0;0;0;0;0; (" + status
+					+ " error)");
+			return "0;0;0;0;0;0;0;0;";
+		} else if (status == 408) {
+			return deRatings(link);
 		}
 		Scanner deScanner = new Scanner(deLink.openStream());
 
 		// <div class="stareval stars_medium">
 		while (deScanner.hasNext()) {
 			String myToken = deScanner.next();
+			if (!ratingFound && myToken.startsWith("itemprop=\"ratingValue\"")) {
+				myToken = deScanner.next();
+				String avg = myToken.replaceAll("[^\\d.]", "");
+				avg = avg.substring(avg.length() - 2, avg.length());
+				deAvgRating = avg.charAt(0) + "." + avg.charAt(1);
+				ratingFound = true;
+				deResult = deAvgRating + ";";
+				// System.out.println("frAvgRating: " + frAvgRating);
+			}
+			if (myToken.startsWith("itemprop=\"ratingCount\">")) {
+				deNumVotes = myToken.replaceAll("[^\\d.]", "");
+				deResult = deNumVotes + ";" + deResult;
+				// System.out.println("frNumVotes: " + frNumVotes);
+				// itemprop="ratingCount">
+			}
 
 			if (myToken.equals("stars_medium\">")) {
+				critFound = true;
 				String prev = "";
 				while (!myToken.startsWith("Kritik")) {
 					prev = myToken;
@@ -345,9 +448,11 @@ public class SensaCine {
 		}
 
 		boolean noRatings = false;
-		if (deResult.equals("")) {
-			deResult = "0;0;0;0;0;0;";
+		if (deResult.equals("0;0;")) {
+			deResult = "0;0;0;0;0;0;0;0;";
 			noRatings = true;
+		} else if (!critFound) {
+			deResult = deResult + "0;0;0;0;0;0;";
 		}
 		deScanner.close();
 		System.out.print("German: " + deResult);
@@ -359,21 +464,44 @@ public class SensaCine {
 	}
 
 	public static String ptRatings(String link) throws IOException {
-		String ptResult = "";
+		String ptNumVotes = "0;";
+		String ptAvgRating = "0;";
+		boolean ratingFound = false;
+		boolean critFound = false;
+		String ptResult = "0;0;";
 		URL ptLink = new URL("http://www.adorocinema.com/filmes/filme-" + link
 				+ "/criticas/espectadores/");
 		HttpURLConnection con = (HttpURLConnection) ptLink.openConnection();
 		int status = con.getResponseCode();
-		if (status == 500) {
-			System.out.println("Portuguese: 0;0;0;0;0;0; (500 error)");
-			return "0;0;0;0;0;0;";
+		if (status == 500 || status == 404 || status == 400) {
+			System.out.println("Portuguese: 0;0;0;0;0;0;0;0; (" + status
+					+ " error)");
+			return "0;0;0;0;0;0;0;0;";
+		} else if (status == 408) {
+			return ptRatings(link);
 		}
 		Scanner ptScanner = new Scanner(ptLink.openStream());
 
 		// <div class="stareval stars_medium">
 		while (ptScanner.hasNext()) {
 			String myToken = ptScanner.next();
+			if (!ratingFound && myToken.startsWith("itemprop=\"ratingValue\"")) {
+				myToken = ptScanner.next();
+				String avg = myToken.replaceAll("[^\\d.]", "");
+				avg = avg.substring(avg.length() - 2, avg.length());
+				ptAvgRating = avg.charAt(0) + "." + avg.charAt(1);
+				ratingFound = true;
+				ptResult = ptAvgRating + ";";
+				// System.out.println("frAvgRating: " + frAvgRating);
+			}
+			if (myToken.startsWith("itemprop=\"ratingCount\">")) {
+				ptNumVotes = myToken.replaceAll("[^\\d.]", "");
+				ptResult = ptNumVotes + ";" + ptResult;
+				// System.out.println("frNumVotes: " + frNumVotes);
+				// itemprop="ratingCount">
+			}
 			if (myToken.equals("stars_medium\">")) {
+				critFound = true;
 				String prev = "";
 				while (!myToken.startsWith("cr")) {
 					prev = myToken;
@@ -391,9 +519,11 @@ public class SensaCine {
 		}
 
 		boolean noRatings = false;
-		if (ptResult.equals("")) {
-			ptResult = "0;0;0;0;0;0;";
+		if (ptResult.equals("0;0;")) {
+			ptResult = "0;0;0;0;0;0;0;0;";
 			noRatings = true;
+		} else if (!critFound) {
+			ptResult = ptResult + "0;0;0;0;0;0;";
 		}
 		ptScanner.close();
 		System.out.print("Portuguese: " + ptResult);
@@ -415,20 +545,19 @@ public class SensaCine {
 	// btn-disabled">Suivante<i
 
 	public static void printFile(Movie myMovie, PrintStream output) {
-		output.print(myMovie.imdbName);
-		output.print(myMovie.imdbYear);
-		output.print(myMovie.imdbLink);
-		output.print(myMovie.alloLink);
-		output.print(myMovie.imdbYear);
-		output.print(myMovie.imdbNumVotes);
-		output.print(myMovie.imdbRating);
+		output.print(myMovie.imdbName + ";");
+		output.print(myMovie.imdbYear + ";");
+		output.print(myMovie.imdbLink + ";");
+		output.print(myMovie.alloLink + ";");
+		output.print(myMovie.imdbNumVotes + ";");
+		output.print(myMovie.imdbRating + ";");
 		output.print(myMovie.frNumStars);
 		output.print(myMovie.esNumStars);
 		output.print(myMovie.ptNumStars);
 		output.print(myMovie.deNumStars);
 		output.print(myMovie.trNumStars);
 		output.println();
-		
+
 	}
 
 }
