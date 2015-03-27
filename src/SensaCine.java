@@ -10,7 +10,9 @@ public class SensaCine {
 		System.setProperty("http.proxyHost", "proxy.mydomain.com");
 		System.setProperty("http.proxyPort", "8080");
 		Map<String, Movie> movies = readImdbFile();
-		movies = alloMovies(movies);
+		PrintStream output = new PrintStream("imdb"
+				+ System.currentTimeMillis() + ".txt");
+		movies = alloMovies(movies, output, startTime);
 
 	}
 
@@ -51,50 +53,8 @@ public class SensaCine {
 		return movies;
 	}
 
-	// public static List<Movie> alloTrim(List<Movie> movies) throws IOException
-	// {
-	// int size = movies.size();
-	// for (int i = size - 1; i >= 0; i--) {
-	// Movie myMovie = movies.get(i);
-	// System.out.println(myMovie.imdbName);
-	// boolean startLooking = false;
-	// boolean notFound = false;
-	// String encodedName = URLEncoder.encode(myMovie.imdbName, "UTF-8");
-	// URL myQuery = new URL("http://www.allocine.fr/recherche/?q="
-	// + encodedName);
-	// InputStream searchStream = myQuery.openStream();
-	// Scanner page = new Scanner(searchStream);
-	// while (!startLooking) {
-	// String token = page. ();
-	// if (token.equals("class=\"title\">Oups")) {
-	// notFound = true;
-	// startLooking = true;
-	// } else if (token.equals("titres")) {
-	// startLooking = true;
-	// }
-	// }
-	// if (notFound) {
-	// movies.remove(myMovie);
-	// } else {
-	// String token = page.next();
-	// while (!token.startsWith("href='/film/fichefilm_gen_cfilm=")) {
-	// token = page.next();
-	// }
-	// int n = 33;
-	// while (token.charAt(n) != '.') {
-	// n++;
-	// }
-	// String link = token.substring(32, n);
-	// System.out.println(link);
-	// System.out.println();
-	// }
-	// page.close();
-	// }
-	// return movies;
-	// }
-
-	public static Map<String, Movie> alloMovies(Map<String, Movie> imdbMovies)
-			throws IOException {
+	public static Map<String, Movie> alloMovies(Map<String, Movie> imdbMovies,
+			PrintStream output, long startTime) throws IOException {
 		Map<String, Movie> alloMovies = new TreeMap<String, Movie>();
 		int numPage = 1;
 		URL url = new URL(
@@ -113,66 +73,361 @@ public class SensaCine {
 						i++;
 					}
 					String link = token.substring(32, i);
+					// link = "189472";
 
-					System.out.println(link);
+					System.out.print(".");
 
 					URL myMovieURL = new URL(
 							"http://www.allocine.fr/film/fichefilm_gen_cfilm="
 									+ link + ".html");
+					// myMovieURL = new URL(
+					// "http://www.allocine.fr/film/fichefilm_gen_cfilm="
+					// + "115362" + ".html");
 					InputStream pageStream = myMovieURL.openStream();
-					Scanner myMovie = new Scanner(pageStream);
+					Scanner myMovieScanner = new Scanner(pageStream);
 					boolean frenchTitle = false;
 					String name = "";
-					while(myMovie.hasNext()){
-						String movieToken = myMovie.next();
-						
-						if(!frenchTitle){
-							if (movieToken.endsWith("<title>")){
-								String add = myMovie.next();
+					while (myMovieScanner.hasNext()) {
+						String movieToken = myMovieScanner.next();
+
+						if (!frenchTitle) {
+							if (movieToken.endsWith("<title>")) {
+								String add = myMovieScanner.next();
 								name = name + add;
-								add = myMovie.next();
-								while (!add.equals("-")){
+								add = myMovieScanner.next();
+								while (!add.equals("-")) {
 									name = name + " " + add;
-									add = myMovie.next();
+									add = myMovieScanner.next();
 								}
 							}
-						} else if (movieToken.startsWith("original</div></th><td>")) {
+						}
+
+						if (movieToken.startsWith("original</div></th><td>")) {
 							int n = 23;
-							while(movieToken.charAt(n) != '<'){
+							while (movieToken.charAt(n) != '<') {
 								n++;
+								if (movieToken.length() <= n) {
+									movieToken = movieToken + " "
+											+ myMovieScanner.next();
+								}
 							}
 							name = movieToken.substring(23, n);
-							//original</div></th><td>About Time</td>
+							// original</div></th><td>About Time</td>
 						}
 					}
-					//System.out.println(name);
-					//System.out.println();
-					if(imdbMovies.containsKey(name)){
-						
+					// System.out.println(name);
+					// System.out.println();
+					if (imdbMovies.containsKey(name)) {
+						System.out.println();
+						System.out.println(link);
+						System.out.println(name);
+						String fr = frRatings(link);
+						String tr = trRatings(link);
+						String es = esRatings(link);
+						String de = deRatings(link);
+						String pt = ptRatings(link);
+						boolean allNull = (fr.equals("0;0;0;0;0;0;")
+								&& fr.equals(tr) && fr.equals(de)
+								&& fr.equals(es) && fr.equals(pt));
+						System.out.println();
+						if (!allNull) {
+							Movie myMovie = imdbMovies.get(name);
+							myMovie.frNumStars = fr;
+							myMovie.trNumStars = tr;
+							myMovie.deNumStars = de;
+							myMovie.esNumStars = es;
+							myMovie.ptNumStars = pt;
+							myMovie.alloLink = link;
+							alloMovies.put(name, myMovie);
+							printFile(myMovie, output);
+						} else {
+							System.out.println("No ratings found, not saving!");
+							System.out.println();
+						}
+
 					}
-					myMovie.close();
+
+					myMovieScanner.close();
 					// http://www.allocine.fr/film/fichefilm_gen_cfilm=
 				} else if (token.equals("btn-disabled\">Suivante<i")) {
 					System.out.println("last page!");
 					lastPage = true;
 				}
 			}
+
+			System.out.println();
+			System.out.println("Size: " + alloMovies.size());
+			System.out.print(((100 * numPage) / 1831) + "% done in ");
+			System.out.println(timer(startTime));
+			System.out.println();
 			numPage++;
 			url = new URL(
 					"http://www.allocine.fr/films/decennie-2010/alphabetique/?page="
 							+ numPage);
-			System.out.println();
-			System.out.println("Size: " + alloMovies.size());
-			System.out.println();
 			myPage.close();
 		}
 
 		return alloMovies;
 	}
 
-	// http://www.allocine.fr/films/alphabetique/?page=2
+	public static String frRatings(String link) throws IOException {
+		String frResult = "";
+		URL frLink = new URL("http://www.allocine.fr/film/fichefilm-" + link
+				+ "/critiques/spectateurs/");
+		HttpURLConnection con = (HttpURLConnection) frLink.openConnection();
+		int status = con.getResponseCode();
+		if (status == 500) {
+			System.out.println("French: 0;0;0;0;0;0; (500 error)");
+			return "0;0;0;0;0;0;";
+		}
+		Scanner frScanner = new Scanner(frLink.openStream());
 
+		// <div class="stareval stars_medium">
+		while (frScanner.hasNext()) {
+			String myToken = frScanner.next();
+			if (myToken.equals("stars_medium\">")) {
+				String prev = "";
+				while (!myToken.startsWith("critique")) {
+					prev = myToken;
+					// System.out.println(prev);
+					myToken = frScanner.next();
+				}
+				// System.out.println("TEST");
+				int finder = prev.length() - 1;
+				while (prev.charAt(finder) != '>') {
+					finder--;
+					// System.out.println(finder);
+				}
+				frResult = frResult + prev.substring(finder + 1) + ";";
+			}
+		}
+
+		boolean noRatings = false;
+		if (frResult.equals("")) {
+			frResult = "0;0;0;0;0;0;";
+			noRatings = true;
+		}
+		frScanner.close();
+		System.out.print("French: " + frResult);
+		if (noRatings) {
+			System.out.print("(No Ratings)");
+		}
+		System.out.println();
+		return frResult;
+	}
+
+	public static String trRatings(String link) throws IOException {
+		String trResult = "";
+		URL trLink = new URL("http://www.beyazperde.com/filmler/film-" + link
+				+ "/kullanici-elestirileri/");
+		HttpURLConnection con = (HttpURLConnection) trLink.openConnection();
+		int status = con.getResponseCode();
+		if (status == 500) {
+			System.out.println("Turkish: 0;0;0;0;0;0; (500 error)");
+			return "0;0;0;0;0;0;";
+		}
+		Scanner trScanner = new Scanner(trLink.openStream());
+
+		// <div class="stareval stars_medium">
+		while (trScanner.hasNext()) {
+			String myToken = trScanner.next();
+
+			if (myToken.equals("stars_medium\">")) {
+				String prev = "";
+				while (!myToken.startsWith("kritik")) {
+					prev = myToken;
+					// System.out.println(prev);
+					myToken = trScanner.next();
+				}
+				// System.out.println("TEST");
+				int finder = prev.length() - 1;
+				while (prev.charAt(finder) != '>') {
+					finder--;
+					// System.out.println(finder);
+				}
+				trResult = trResult + prev.substring(finder + 1) + ";";
+			}
+		}
+
+		boolean noRatings = false;
+		if (trResult.equals("")) {
+			trResult = "0;0;0;0;0;0;";
+			noRatings = true;
+		}
+		trScanner.close();
+		System.out.print("Turkish: " + trResult);
+		if (noRatings) {
+			System.out.print("(No Ratings)");
+		}
+		System.out.println();
+		return trResult;
+	}
+
+	public static String esRatings(String link) throws IOException {
+		String esResult = "";
+		URL esLink = new URL("http://www.sensacine.com/peliculas/pelicula-"
+				+ link + "/criticas-espectadores/");
+		HttpURLConnection con = (HttpURLConnection) esLink.openConnection();
+		int status = con.getResponseCode();
+		if (status == 500) {
+			System.out.println("Spanish: 0;0;0;0;0;0; (500 error)");
+			return "0;0;0;0;0;0;";
+		}
+		Scanner esScanner = new Scanner(esLink.openStream());
+
+		// <div class="stareval stars_medium">
+		while (esScanner.hasNext()) {
+			String myToken = esScanner.next();
+
+			if (myToken.equals("stars_medium\">")) {
+				String prev = "";
+				while (!myToken.startsWith("cr")) {
+					prev = myToken;
+					// System.out.println(prev);
+					myToken = esScanner.next();
+				}
+				// System.out.println("TEST");
+				int finder = prev.length() - 1;
+				while (prev.charAt(finder) != '>') {
+					finder--;
+					// System.out.println(finder);
+				}
+				esResult = esResult + prev.substring(finder + 1) + ";";
+			}
+		}
+
+		boolean noRatings = false;
+		if (esResult.equals("")) {
+			esResult = "0;0;0;0;0;0;";
+			noRatings = true;
+		}
+		esScanner.close();
+		System.out.print("Spanish: " + esResult);
+		if (noRatings) {
+			System.out.print("(No Ratings)");
+		}
+		System.out.println();
+		return esResult;
+	}
+
+	public static String deRatings(String link) throws IOException {
+		String deResult = "";
+		URL deLink = new URL("http://www.filmstarts.de/kritiken/" + link
+				+ "/userkritiken/");
+		HttpURLConnection con = (HttpURLConnection) deLink.openConnection();
+		int status = con.getResponseCode();
+		if (status == 500) {
+			System.out.println("German: 0;0;0;0;0;0; (500 error)");
+			return "0;0;0;0;0;0;";
+		}
+		Scanner deScanner = new Scanner(deLink.openStream());
+
+		// <div class="stareval stars_medium">
+		while (deScanner.hasNext()) {
+			String myToken = deScanner.next();
+
+			if (myToken.equals("stars_medium\">")) {
+				String prev = "";
+				while (!myToken.startsWith("Kritik")) {
+					prev = myToken;
+					// System.out.println(prev);
+					myToken = deScanner.next();
+				}
+				// System.out.println("TEST");
+				int finder = prev.length() - 1;
+				while (prev.charAt(finder) != '>') {
+					finder--;
+					// System.out.println(prev.charAt(finder));
+					// System.out.println(finder);
+				}
+				deResult = deResult + prev.substring(finder + 1) + ";";
+			}
+		}
+
+		boolean noRatings = false;
+		if (deResult.equals("")) {
+			deResult = "0;0;0;0;0;0;";
+			noRatings = true;
+		}
+		deScanner.close();
+		System.out.print("German: " + deResult);
+		if (noRatings) {
+			System.out.print("(No Ratings)");
+		}
+		System.out.println();
+		return deResult;
+	}
+
+	public static String ptRatings(String link) throws IOException {
+		String ptResult = "";
+		URL ptLink = new URL("http://www.adorocinema.com/filmes/filme-" + link
+				+ "/criticas/espectadores/");
+		HttpURLConnection con = (HttpURLConnection) ptLink.openConnection();
+		int status = con.getResponseCode();
+		if (status == 500) {
+			System.out.println("Portuguese: 0;0;0;0;0;0; (500 error)");
+			return "0;0;0;0;0;0;";
+		}
+		Scanner ptScanner = new Scanner(ptLink.openStream());
+
+		// <div class="stareval stars_medium">
+		while (ptScanner.hasNext()) {
+			String myToken = ptScanner.next();
+			if (myToken.equals("stars_medium\">")) {
+				String prev = "";
+				while (!myToken.startsWith("cr")) {
+					prev = myToken;
+					// System.out.println(prev);
+					myToken = ptScanner.next();
+				}
+				// System.out.println("TEST");
+				int finder = prev.length() - 1;
+				while (prev.charAt(finder) != '>') {
+					finder--;
+					// System.out.println(finder);
+				}
+				ptResult = ptResult + prev.substring(finder + 1) + ";";
+			}
+		}
+
+		boolean noRatings = false;
+		if (ptResult.equals("")) {
+			ptResult = "0;0;0;0;0;0;";
+			noRatings = true;
+		}
+		ptScanner.close();
+		System.out.print("Portuguese: " + ptResult);
+		if (noRatings) {
+			System.out.print("(No Ratings)");
+		}
+		System.out.println();
+		return ptResult;
+	}
+
+	public static String timer(long startTime) {
+		long endTime = System.currentTimeMillis();
+		long duration = (endTime - startTime) / 1000;
+		return (duration / 60 + " minutes");
+	}
+
+	// http://www.allocine.fr/films/alphabetique/?page=2
 	// href="/film/fichefilm_gen_cfilm=
 	// btn-disabled">Suivante<i
+
+	public static void printFile(Movie myMovie, PrintStream output) {
+		output.print(myMovie.imdbName);
+		output.print(myMovie.imdbYear);
+		output.print(myMovie.imdbLink);
+		output.print(myMovie.alloLink);
+		output.print(myMovie.imdbYear);
+		output.print(myMovie.imdbNumVotes);
+		output.print(myMovie.imdbRating);
+		output.print(myMovie.frNumStars);
+		output.print(myMovie.esNumStars);
+		output.print(myMovie.ptNumStars);
+		output.print(myMovie.deNumStars);
+		output.print(myMovie.trNumStars);
+		
+	}
 
 }

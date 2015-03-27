@@ -8,7 +8,6 @@ public class Movie {
 
 	// the links and original names for all 4 sites should be the same.
 	public String alloLink;
-	public String alloName;
 
 	// From 0 (inclusive) to 5(inclusive), with semicolons in between
 	public String frNumStars;
