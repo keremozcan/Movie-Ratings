@@ -2,6 +2,11 @@ import java.util.*;
 import java.io.*;
 import java.net.*;
 
+// This program takes a year range and scrapes rating data from the
+// imdb website within the given range. The txt file provided by
+// imdb didn't seem to work well for my purposes so I decided to
+// create my own scraping program.
+
 public class ImdbWebsite {
 	public static void main(String args[]) throws IOException {
 		long startTime = System.currentTimeMillis();
