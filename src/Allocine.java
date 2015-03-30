@@ -70,7 +70,11 @@ public class Allocine {
 
 		// Change the below numPage if the process is interrupted for
 		// some reason.
-		int numPage = 1046;
+		
+		
+		int numPage = 1695;
+		
+		
 		// The below variables are just for reference to keep you updated
 		// during the process.
 		// currently a total of 1831 pages for 2010s
@@ -247,7 +251,13 @@ public class Allocine {
 		boolean critFound = false;
 		String result = "0;0;";
 
+		// The portuguese page is inconsistent with errors so I decided
+		// to leave thi
+		if (!language.equals("Portuguese: ")) {
 		waitWhileError(myLink);
+		} else {
+			waitWhileErrorPt(myLink, 30);
+		}
 		HttpURLConnection con = (HttpURLConnection) myLink.openConnection();
 		int status = con.getResponseCode();
 		if (status == 500 || status == 400 || status == 404) {
@@ -334,11 +344,25 @@ public class Allocine {
 		while (status == 503 || status == 404 || status == 400 || status == 408) {
 			test = (HttpURLConnection) url.openConnection();
 			status = test.getResponseCode();
-			try {
-				Thread.sleep(1000);
-				waitWhileError(url);
-			} catch (InterruptedException ex) {
-				Thread.currentThread().interrupt();
+			waitWhileError(url);
+			// try {
+			// Thread.sleep(1000);
+			// } catch (InterruptedException ex) {
+			// Thread.currentThread().interrupt();
+			// }
+		}
+	}
+
+	public static void waitWhileErrorPt(URL url, int counter)
+			throws IOException {
+		HttpURLConnection test = (HttpURLConnection) url.openConnection();
+		int status = test.getResponseCode();
+		if (counter <= 0) {
+			while (status == 503 || status == 404 || status == 400
+					|| status == 408) {
+				test = (HttpURLConnection) url.openConnection();
+				status = test.getResponseCode();
+				waitWhileErrorPt(url, counter--);
 			}
 		}
 	}
