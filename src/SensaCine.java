@@ -54,8 +54,8 @@ public class SensaCine {
 			String numVotes = line.substring(19, n);
 			String name = line.substring(n + 1);
 
-			Movie myMovie = new Movie(year, link, rating, numVotes, name);
-			movies.put(myMovie.imdbName, myMovie);
+			//Movie myMovie = new Movie(year, link, name);
+			//movies.put(myMovie.imdbName, myMovie);
 
 			// (Below are for debugging purposes)
 			// System.out.println(myMovie.imdbLink);
@@ -222,11 +222,11 @@ public class SensaCine {
 						// output.
 						if (!allNull) {
 							Movie myMovie = imdbMovies.get(name);
-							myMovie.frNumStars = fr;
-							myMovie.trNumStars = tr;
-							myMovie.deNumStars = de;
-							myMovie.esNumStars = es;
-							myMovie.ptNumStars = pt;
+							myMovie.frDist = fr;
+							myMovie.trDist = tr;
+							myMovie.deDist = de;
+							myMovie.esDist = es;
+							myMovie.ptDist = pt;
 							myMovie.alloLink = link;
 							alloMovies.put(name, myMovie);
 							printFile(myMovie, output);
@@ -738,13 +738,11 @@ public class SensaCine {
 		output.print(myMovie.imdbYear + ";");
 		output.print(myMovie.imdbLink + ";");
 		output.print(myMovie.alloLink + ";");
-		output.print(myMovie.imdbNumVotes + ";");
-		output.print(myMovie.imdbRating + ";");
-		output.print(myMovie.frNumStars);
-		output.print(myMovie.esNumStars);
-		output.print(myMovie.ptNumStars);
-		output.print(myMovie.deNumStars);
-		output.print(myMovie.trNumStars);
+		output.print(myMovie.frDist);
+		output.print(myMovie.esDist);
+		output.print(myMovie.ptDist);
+		output.print(myMovie.deDist);
+		output.print(myMovie.trDist);
 		output.println();
 
 	}

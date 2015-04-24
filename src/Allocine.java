@@ -25,41 +25,13 @@ public class Allocine {
 		System.setProperty("http.proxyHost", "proxy.mydomain.com");
 		System.setProperty("http.proxyPort", "8080");
 		// reads the imdb file and creates a Map of Movie objects.
-		// The keys are the names of the movies.
-		Map<String, Movie> movies = readImdbFile();
+		// The keys are the 4 digit year + names of the movies.
+		Map<String, Movie> movies = Movie.readImdbFile("imdbCoreList.txt", ',');
 		PrintStream output = new PrintStream("combined"
 				+ System.currentTimeMillis() + ".txt");
 		// this combines them and prints them.
 		movies = alloMovies(movies, output, startTime);
 
-	}
-
-	// reads the given imdbList file and creates a map.
-	// Keys are the names of movies and values are Movie
-	// objects.
-
-	public static Map<String, Movie> readImdbFile()
-			throws FileNotFoundException {
-		Scanner input = new Scanner(new File("imdbList.txt"));
-		Map<String, Movie> movies = new TreeMap<String, Movie>();
-		while (input.hasNextLine()) {
-			String line = input.nextLine();
-			int n = 21;
-			while (!line.substring(n).startsWith(";")) {
-				n++;
-			}
-			String year = line.substring(0, 4);
-			String link = line.substring(5, 14);
-			String rating = line.substring(15, 18);
-			String numVotes = line.substring(19, n);
-			String name = line.substring(n + 1);
-
-			Movie myMovie = new Movie(year, link, rating, numVotes, name);
-			movies.put(myMovie.imdbName, myMovie);
-
-		}
-		input.close();
-		return movies;
 	}
 
 	// This method takes the imdbMovies map and creates a combined list
@@ -70,16 +42,14 @@ public class Allocine {
 
 		// Change the below numPage if the process is interrupted for
 		// some reason.
-		
-		
-		int numPage = 1695;
-		
-		
+
+		int numPage = 1851;
+
 		// The below variables are just for reference to keep you updated
 		// during the process.
 		// currently a total of 1831 pages for 2010s
 		int firstPage = numPage - 1;
-		int totalPage = 1831 - numPage;
+		int totalPage = 1852 - numPage;
 
 		// The URL below should be changed if the movie year range you are
 		// looking for is not between 2010-2019. It goes to the French
@@ -106,9 +76,10 @@ public class Allocine {
 					// listed above.
 					String link = token.substring(32, i);
 					// below is for debugging purposes.
-					// link = "225966";
 
-					System.out.print(".");
+					//link = "178496";
+
+					//System.out.print(".");
 
 					URL myMovieURL = new URL(
 							"http://www.allocine.fr/film/fichefilm_gen_cfilm="
@@ -117,30 +88,63 @@ public class Allocine {
 					InputStream pageStream = myMovieURL.openStream();
 					Scanner myMovieScanner = new Scanner(pageStream);
 					boolean frenchTitle = false;
+					// boolean foundYear = false;
+					boolean originalTitle = false;
+					boolean foundDirector = false;
 					String name = "";
-					while (myMovieScanner.hasNext()) {
+					// String year = "";
+					String director = "";
+					//
+					// checks the title of the movie. Since the base
+					// site is in French, the title is French in most
+					// cases. If the movie is in another language the
+					// below if clause takes care of that case.
+					while (!frenchTitle) {
 						String movieToken = myMovieScanner.next();
-
-						// checks the title of the movie. Since the base
-						// site is in French, the title is French in most
-						// cases. If the movie is in another language the
-						// below if clause takes care of that case.
-						if (!frenchTitle) {
-							if (movieToken.endsWith("<title>")) {
-								String add = myMovieScanner.next();
-								name = name + add;
+						if (movieToken.endsWith("<title>")) {
+							String add = myMovieScanner.next();
+							name = name + add;
+							add = myMovieScanner.next();
+							while (!add.equals("-")) {
+								name = name + " " + add;
 								add = myMovieScanner.next();
-								while (!add.equals("-")) {
-									name = name + " " + add;
-									add = myMovieScanner.next();
-								}
 							}
+							frenchTitle = true;
 						}
+					}
 
-						// Checks if the movie has a title in "original title"
-						// if it does, it replaces the tile with the original
-						// title, since this is how we obtain the information
-						// from imdb as well.
+					// while (!foundYear) {
+					// String movieToken = myMovieScanner.next();
+					// if (movieToken.endsWith("</span></strong>")) {
+					// year = movieToken.substring(0, 4);
+					// foundYear = true;
+					// }
+					// }
+
+					while (!foundDirector) {
+						String movieToken = myMovieScanner.next();
+						if (movieToken.startsWith("title=\"")) {
+							director = movieToken.substring(7);
+							if (director.startsWith("\"")) {
+								originalTitle = true;
+							} else {
+								while (!director.endsWith("\"")) {
+									director += " " + myMovieScanner.next();
+								}
+								director = director.substring(0,
+										director.length() - 1);
+							}
+							// System.out.println(director);
+							foundDirector = true;
+						}
+					}
+
+					// Checks if the movie has a title in "original title"
+					// if it does, it replaces the tile with the original
+					// title, since this is how we obtain the information
+					// from imdb as well.
+					while (!originalTitle && myMovieScanner.hasNext()) {
+						String movieToken = myMovieScanner.next();
 						if (movieToken.startsWith("original</div></th><td>")) {
 							int n = 23;
 							while (movieToken.charAt(n) != '<') {
@@ -151,6 +155,7 @@ public class Allocine {
 								}
 							}
 							name = movieToken.substring(23, n);
+							originalTitle = true;
 						}
 					}
 
@@ -160,10 +165,11 @@ public class Allocine {
 					// decade. This is because some movies in Allocine
 					// database do not have the year information and others
 					// are different from the imdb database numbers.
-					if (imdbMovies.containsKey(name)) {
+					if (imdbMovies.containsKey(name + ',' + director)) {
 						System.out.println();
 						System.out.println(link);
 						System.out.println(name);
+						System.out.println(director);
 						// gets the ratings from each site
 
 						URL frLink = new URL(
@@ -187,7 +193,7 @@ public class Allocine {
 						String de = getRatings("German: ", "Kritik", deLink);
 						String tr = getRatings("Turkish: ", "kritik", trLink);
 						// checks if it's all null
-						boolean allNull = (fr.equals("0;0;0;0;0;0;0;0;")
+						boolean allNull = (fr.equals("0,0,0,0,0,0,0,0,")
 								&& fr.equals(tr) && fr.equals(de)
 								&& fr.equals(es) && fr.equals(pt));
 						System.out.println();
@@ -195,15 +201,19 @@ public class Allocine {
 						// it saves it to database and prints out to the
 						// output.
 						if (!allNull) {
-							Movie myMovie = imdbMovies.get(name);
+							Movie myMovie = imdbMovies.get(name + ','
+									+ director);
 							myMovie.addAllocineRatings(fr, es, pt, de, tr, link);
-							alloMovies.put(name, myMovie);
+							alloMovies.put(name + ',' + director, myMovie);
 							printFile(myMovie, output);
 						} else {
 							System.out.println("No ratings found, not saving!");
 							System.out.println();
 						}
 
+					} else {
+						System.out.println(name + " (" + link + ") not found!");
+						System.out.println();
 					}
 
 					myMovieScanner.close();
@@ -245,25 +255,25 @@ public class Allocine {
 
 	public static String getRatings(String language, String critique, URL myLink)
 			throws IOException {
-		String numVotes = "0;";
-		String avgRating = "0;";
+		String numVotes = "0,";
+		String avgRating = "0,";
 		boolean ratingFound = false;
 		boolean critFound = false;
-		String result = "0;0;";
+		String result = "0,0,";
 
 		// The portuguese page is inconsistent with errors so I decided
 		// to leave thi
 		if (!language.equals("Portuguese: ")) {
-		waitWhileError(myLink);
+			waitWhileError(myLink);
 		} else {
 			waitWhileErrorPt(myLink, 30);
 		}
 		HttpURLConnection con = (HttpURLConnection) myLink.openConnection();
 		int status = con.getResponseCode();
 		if (status == 500 || status == 400 || status == 404) {
-			System.out.println(language + "0;0;0;0;0;0;0;0; (" + status
+			System.out.println(language + "0,0,0,0,0,0,0,0, (" + status
 					+ " error)");
-			return "0;0;0;0;0;0;0;0;";
+			return "0,0,0,0,0,0,0,0,";
 		}
 
 		Scanner myScanner = new Scanner(myLink.openStream());
@@ -273,11 +283,12 @@ public class Allocine {
 				myToken = myScanner.next();
 				avgRating = cleanRating(myToken);
 				ratingFound = true;
-				result = avgRating + ";";
+				result = avgRating + ",";
 			}
 			if (myToken.startsWith("itemprop=\"ratingCount\">")) {
 				numVotes = myToken.replaceAll("[^\\d.]", "");
-				result = numVotes + ";" + result;
+				// System.out.println(numVotes);
+				result = numVotes + "," + result;
 			}
 			if (myToken.equals("stars_medium\">")) {
 				critFound = true;
@@ -290,15 +301,15 @@ public class Allocine {
 				while (prev.charAt(finder) != '>') {
 					finder--;
 				}
-				result = result + prev.substring(finder + 1) + ";";
+				result = result + prev.substring(finder + 1) + ",";
 			}
 		}
 		boolean noRatings = false;
-		if (result.equals("0;0;")) {
-			result = "0;0;0;0;0;0;0;0;";
+		if (result.equals("0,0,")) {
+			result = "0,0,0,0,0,0,0,0,";
 			noRatings = true;
 		} else if (!critFound) {
-			result = result + "0;0;0;0;0;0;";
+			result = result + "0,0,0,0,0,0,";
 		}
 		myScanner.close();
 		System.out.print(language + result);
@@ -319,7 +330,7 @@ public class Allocine {
 
 	// Prints the Movie object to the provided file.
 	public static void printFile(Movie myMovie, PrintStream output) {
-		output.println(myMovie);
+		output.println(myMovie.imdbString() + myMovie.alloString());
 
 	}
 
@@ -344,12 +355,12 @@ public class Allocine {
 		while (status == 503 || status == 404 || status == 400 || status == 408) {
 			test = (HttpURLConnection) url.openConnection();
 			status = test.getResponseCode();
+			try {
+				 Thread.sleep(1000);
+				 } catch (InterruptedException ex) {
+				 Thread.currentThread().interrupt();
+				 }
 			waitWhileError(url);
-			// try {
-			// Thread.sleep(1000);
-			// } catch (InterruptedException ex) {
-			// Thread.currentThread().interrupt();
-			// }
 		}
 	}
 
@@ -362,6 +373,11 @@ public class Allocine {
 					|| status == 408) {
 				test = (HttpURLConnection) url.openConnection();
 				status = test.getResponseCode();
+				try {
+					 Thread.sleep(1000);
+					 } catch (InterruptedException ex) {
+					 Thread.currentThread().interrupt();
+					 }
 				waitWhileErrorPt(url, counter--);
 			}
 		}
